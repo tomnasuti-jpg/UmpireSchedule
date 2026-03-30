@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Umps</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="topbar">
+    <button id="toggleWeekBtn" class="nav-btn">View Next Week >>></button>
+  </div>
+
+  <div id="weekStatus" class="week-status">
+    This Week's Schedule (See Dates below)
+  </div>
+
+  <iframe id="scheduleFrame" title="Schedule Viewer"></iframe>
+  <div id="errorMsg" class="error"></div>
+
+  <!-- Buttons (only show when a schedule file loads successfully) -->
+  <div id="actionButtons" class="button-section" style="display:none;">
+
+    <div id="confirmTitle" class="confirm-title">Confirm Schedule This Week</div>
+
+    <div class="icon-row">
+      <a href="sms:5622080221?body=👍 Confirmed" class="icon-btn" aria-label="Confirm schedule">
+        👍
+      </a>
+
+      <a href="sms:5622080221?body=👎 Can't do these games" class="icon-btn" aria-label="Reject schedule">
+        👎
+      </a>
+
+      <a href="sms:5622080221?body=I have an issue with these games. Can we change?" class="icon-btn" aria-label="Request change">
+        🔄
+      </a>
+    </div>
+
+  </div>
+
+  <script>
+    const FILE_THIS_WEEK = "Week1.html";
+    const FILE_NEXT_WEEK = "Week2.html";
+
+    const frame = document.getElementById("scheduleFrame");
+    const error = document.getElementById("errorMsg");
+    const buttons = document.getElementById("actionButtons");
+    const toggleBtn = document.getElementById("toggleWeekBtn");
+    const statusText = document.getElementById("weekStatus");
+    const confirmTitle = document.getElementById("confirmTitle");
+
+    let showingNext = false;
+
+    async function loadSchedule(file) {
+      // Reset UI
+      error.textContent = "";
+      frame.style.display = "none";
+      buttons.style.display = "none";
+
+      try {
+        const res = await fetch(file, { cache: "no-store" });
+        if (!res.ok) throw new Error("File not found");
+
+        const content = await res.text();
+        if (content.trim().length < 20) throw new Error("File is empty");
+
+        // If valid, show
+        frame.src = file;
+        frame.style.display = "block";
+        buttons.style.display = "flex";
+
+        frame.onload = () => {
+          // Optional cleanup (only works same-origin)
+          try {
+            const iframeDoc = frame.contentDocument || frame.contentWindow.document;
+
+            const style = iframeDoc.createElement("style");
+            style.innerHTML = `
+              h1, h2, header, title { display: none !important; }
+              body { margin: 0 !important; padding: 0 !important; }
+            `;
+            iframeDoc.head.appendChild(style);
+          } catch (e) {
+            console.warn("Iframe style injection failed:", e);
+          }
+        };
+      } catch (e) {
+        // Show message depending on which one they tried to view
+        const which = (file === FILE_NEXT_WEEK) ? "NEXT WEEK" : "THIS WEEK";
+        error.innerHTML = `⚠️ Schedule not available yet for NEXT WEEK.`;
+      }
+    }
+
+    function updateLabels() {
+      if (showingNext) {
+        // Currently viewing NEXT week
+        toggleBtn.textContent = "<< View This Week";
+        toggleBtn.classList.remove("nav-next");
+        toggleBtn.classList.add("nav-this");
+
+        statusText.textContent = "Next Week's Schedule (See Dates below)";
+        confirmTitle.textContent = "Confirm Schedule Next Week";
+      } else {
+        // Currently viewing THIS week
+        toggleBtn.textContent = "View Next Week >>";
+        toggleBtn.classList.remove("nav-this");
+        toggleBtn.classList.add("nav-next");
+
+        statusText.textContent = "This Week's Schedule (See Dates below)";
+        confirmTitle.textContent = "Confirm Schedule This Week";
+      }
+    }
+
+    // Default load
+    updateLabels();
+    loadSchedule(FILE_THIS_WEEK);
+
+    toggleBtn.addEventListener("click", () => {
+      showingNext = !showingNext;
+      updateLabels();
+      loadSchedule(showingNext ? FILE_NEXT_WEEK : FILE_THIS_WEEK);
+    });
+  </script>
+</body>
+</html>
